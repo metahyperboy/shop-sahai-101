@@ -7,28 +7,57 @@ export interface VoiceCommandResult {
   message: string;
   summary?: string; // concise summary for TTS
   debug?: string;   // debug info for UI
+  type?: 'income' | 'expense' | 'purchase' | 'borrow'; // Added for event dispatch
+  amount?: number; // Added for event dispatch
+  category?: string; // Added for event dispatch
+  description?: string; // Added for event dispatch
 }
 
 // --- Expanded Malayalam Number Map and Parser ---
 const malayalamNumberMap: Record<string, number> = {
   // Units
   "പൂജ്യം": 0, "ഒന്ന്": 1, "രണ്ട്": 2, "മൂന്ന്": 3, "നാല്": 4, "അഞ്ച്": 5, "ആറ്": 6, "ഏഴ്": 7, "എട്ട്": 8, "ഒമ്പത്": 9,
+  // Alternative forms
+  "ഒരു": 1, "ഒന്നു": 1, "രണ്ടു": 2, "മൂന്നു": 3, "നാലു": 4, "അഞ്ചു": 5, "ആറു": 6, "ഏഴു": 7, "എട്ടു": 8, "ഒമ്പതു": 9,
   // 10-19
   "പത്ത്": 10, "പതിനൊന്ന്": 11, "പന്ത്രണ്ട്": 12, "പതിമൂന്ന്": 13, "പതിനാല്": 14, "പതിനഞ്ച്": 15, "പതിനാറ്": 16, "പതിനേഴ്": 17, "പതിനെട്ട്": 18, "പത്തൊമ്പത്": 19,
+  // Alternative forms for 10-19
+  "പതിനൊന്നു": 11, "പന്ത്രണ്ടു": 12, "പതിമൂന്നു": 13, "പതിനാലു": 14, "പതിനഞ്ചു": 15, "പതിനാറു": 16, "പതിനേഴു": 17, "പതിനെട്ടു": 18, "പത്തൊമ്പതു": 19,
   // Tens
   "ഇരുപത്": 20, "മുപ്പത്": 30, "നാല്പത്": 40, "അമ്പത്": 50, "അറുപത്": 60, "എഴുപത്": 70, "എൺപത്": 80, "തൊണ്ണൂറ്": 90,
+  // Alternative forms for tens
+  "ഇരുപതു": 20, "മുപ്പതു": 30, "നാല്പതു": 40, "അമ്പതു": 50, "അറുപതു": 60, "എഴുപതു": 70, "എൺപതു": 80, "തൊണ്ണൂറു": 90,
   // Hundreds
   "നൂറ്": 100, "രണ്ടുനൂറ്": 200, "മുന്നൂറ്": 300, "നാനൂറ്": 400, "അഞ്ഞൂറ്": 500, "അറുനൂറ്": 600, "എഴുനൂറ്": 700, "എണ്ണൂറ്": 800, "തൊള്ളായിരം": 900,
+  // Alternative forms for hundreds
+  "നൂറു": 100, "രണ്ടുനൂറു": 200, "മുന്നൂറു": 300, "നാനൂറു": 400, "അഞ്ഞൂറു": 500, "അറുനൂറു": 600, "എഴുനൂറു": 700, "എണ്ണൂറു": 800,
   // Thousands
   "ആയിരം": 1000, "രണ്ടായിരം": 2000, "മുന്നായിരം": 3000, "നാലായിരം": 4000, "അയ്യായിരം": 5000, "അറായിരം": 6000, "ഏഴായിരം": 7000, "എട്ടായിരം": 8000, "ഒമ്പതായിരം": 9000,
+  // Alternative forms for thousands
+  "ആയിരു": 1000, "രണ്ടായിരു": 2000, "മുന്നായിരു": 3000, "നാലായിരു": 4000, "അയ്യായിരു": 5000, "അറായിരു": 6000, "ഏഴായിരു": 7000, "എട്ടായിരു": 8000, "ഒമ്പതായിരു": 9000,
   // Ten thousands
   "പത്തായിരം": 10000, "ഇരുപത്തായിരം": 20000, "മുപ്പത്തായിരം": 30000, "നാല്പത്തായിരം": 40000, "അമ്പത്തായിരം": 50000, "അറുപത്തായിരം": 60000, "എഴുപത്തായിരം": 70000, "എൺപത്തായിരം": 80000, "തൊണ്ണൂറായിരം": 90000,
+  // Alternative forms for ten thousands
+  "പത്തായിരു": 10000, "ഇരുപത്തായിരു": 20000, "മുപ്പത്തായിരു": 30000, "നാല്പത്തായിരു": 40000, "അമ്പത്തായിരു": 50000, "അറുപത്തായിരു": 60000, "എഴുപത്തായിരു": 70000, "എൺപത്തായിരു": 80000, "തൊണ്ണൂറായിരു": 90000,
   // Lakhs
   "ലക്ഷം": 100000, "രണ്ടുലക്ഷം": 200000, "മുന്നുലക്ഷം": 300000, "നാലുലക്ഷം": 400000, "അയ്യുലക്ഷം": 500000, "അറുലക്ഷം": 600000, "ഏഴുലക്ഷം": 700000, "എട്ടുലക്ഷം": 800000, "ഒമ്പതുലക്ഷം": 900000,
+  // Alternative forms for lakhs
+  "ലക്ഷു": 100000, "രണ്ടുലക്ഷു": 200000, "മുന്നുലക്ഷു": 300000, "നാലുലക്ഷു": 400000, "അയ്യുലക്ഷു": 500000, "അറുലക്ഷു": 600000, "ഏഴുലക്ഷു": 700000, "എട്ടുലക്ഷു": 800000, "ഒമ്പതുലക്ഷു": 900000,
   // Ten lakhs
   "പത്ത് ലക്ഷം": 1000000, "ഇരുപത് ലക്ഷം": 2000000, "മുപ്പത് ലക്ഷം": 3000000, "നാല്പത് ലക്ഷം": 4000000, "അമ്പത് ലക്ഷം": 5000000, "അറുപത് ലക്ഷം": 6000000, "എഴുപത് ലക്ഷം": 7000000, "എൺപത് ലക്ഷം": 8000000, "തൊണ്ണൂറ് ലക്ഷം": 9000000,
+  // Alternative forms for ten lakhs
+  "പത്തു ലക്ഷം": 1000000, "ഇരുപതു ലക്ഷം": 2000000, "മുപ്പതു ലക്ഷം": 3000000, "നാല്പതു ലക്ഷം": 4000000, "അമ്പതു ലക്ഷം": 5000000, "അറുപതു ലക്ഷം": 6000000, "എഴുപതു ലക്ഷം": 7000000, "എൺപതു ലക്ഷം": 8000000, "തൊണ്ണൂറു ലക്ഷം": 9000000,
   // Crores
   "കോടി": 10000000, "രണ്ടുകോടി": 20000000, "മുന്നുകോടി": 30000000, "നാലുകോടി": 40000000, "അയ്യുകോടി": 50000000, "അറുകോടി": 60000000, "ഏഴുകോടി": 70000000, "എട്ടുകോടി": 80000000, "ഒമ്പതുകോടി": 90000000,
+  // Alternative forms for crores
+  "കോടിയ": 10000000, "രണ്ടുകോടിയ": 20000000, "മുന്നുകോടിയ": 30000000, "നാലുകോടിയ": 40000000, "അയ്യുകോടിയ": 50000000, "അറുകോടിയ": 60000000, "ഏഴുകോടിയ": 70000000, "എട്ടുകോടിയ": 80000000, "ഒമ്പതുകോടിയ": 90000000,
+  // Common spoken forms
+  "ആയിരം രൂപ": 1000, "ലക്ഷം രൂപ": 100000, "കോടി രൂപ": 10000000,
+  "ആയിരം രൂപയ്ക്ക്": 1000, "ലക്ഷം രൂപയ്ക്ക്": 100000, "കോടി രൂപയ്ക്ക്": 10000000,
+  // Common expense/borrow phrases
+  "ആയിരം ചെലവ്": 1000, "ലക്ഷം ചെലവ്": 100000, "കോടി ചെലവ്": 10000000,
+  "ആയിരം കടം": 1000, "ലക്ഷം കടം": 100000, "കോടി കടം": 10000000,
+  "ആയിരം വാങ്ങൽ": 1000, "ലക്ഷം വാങ്ങൽ": 100000, "കോടി വാങ്ങൽ": 10000000,
   // Spoken forms
   "oru ayiram": 1000, "oru lakh": 100000, "oru kodi": 10000000, "pathu lakh": 1000000, "pathu kodi": 100000000,
   // Shopkeeper phrases
@@ -36,22 +65,40 @@ const malayalamNumberMap: Record<string, number> = {
 };
 
 function parseMalayalamCompoundNumber(phrase: string): number | null {
+  console.log('[parseMalayalamCompoundNumber] Processing phrase:', phrase);
+  
   // Try direct match
-  if (malayalamNumberMap[phrase]) return malayalamNumberMap[phrase];
+  if (malayalamNumberMap[phrase]) {
+    console.log('[parseMalayalamCompoundNumber] Direct match found:', malayalamNumberMap[phrase]);
+    return malayalamNumberMap[phrase];
+  }
+  
   // Try digit
-  if (/^\d+$/.test(phrase)) return parseInt(phrase, 10);
+  if (/^\d+$/.test(phrase)) {
+    console.log('[parseMalayalamCompoundNumber] Digit match found:', parseInt(phrase, 10));
+    return parseInt(phrase, 10);
+  }
+  
   // Try compound (e.g., "രണ്ടു ലക്ഷം")
   let total = 0, current = 0;
   const words = phrase.split(' ');
+  console.log('[parseMalayalamCompoundNumber] Words to process:', words);
+  
   for (let i = 0; i < words.length; i++) {
     let w = words[i];
     let val = malayalamNumberMap[w];
+    
     if (!val && i + 1 < words.length) {
       const compound = w + ' ' + words[i + 1];
       val = malayalamNumberMap[compound];
-      if (val) i++;
+      if (val) {
+        console.log('[parseMalayalamCompoundNumber] Compound match found:', compound, val);
+        i++;
+      }
     }
+    
     if (val) {
+      console.log('[parseMalayalamCompoundNumber] Processing word:', w, 'value:', val);
       if ([100, 1000, 10000, 100000, 1000000, 10000000, 100000000].includes(val)) {
         if (current === 0) current = 1;
         current *= val;
@@ -63,6 +110,8 @@ function parseMalayalamCompoundNumber(phrase: string): number | null {
     }
   }
   total += current;
+  
+  console.log('[parseMalayalamCompoundNumber] Final result:', total > 0 ? total : null);
   return total > 0 ? total : null;
 }
 
@@ -74,28 +123,58 @@ const englishScales = ["crore", "lakh", "lac", "thousand", "hundred"];
 
 export function universalNumberParser(phrase: string): number | null {
   phrase = phrase.toLowerCase().replace(/[,-]/g, ' ').replace(/\s+/g, ' ').trim();
+  
+  console.log('[universalNumberParser] Processing phrase:', phrase);
+  
+  // 0. Try to extract number from common phrases like "1000 rupees" or "ആയിരം രൂപ"
+  const rupeeMatch = phrase.match(/(\d+)\s*(?:rupees?|രൂപ|രൂപയ്ക്ക്?)/i);
+  if (rupeeMatch) {
+    console.log('[universalNumberParser] Found rupee phrase match:', rupeeMatch[1]);
+    return parseInt(rupeeMatch[1], 10);
+  }
+  
   // 1. Try digit match
   const digitMatch = phrase.match(/\b\d{1,8}\b/);
-  if (digitMatch) return parseInt(digitMatch[0], 10);
+  if (digitMatch) {
+    console.log('[universalNumberParser] Found digit match:', digitMatch[0]);
+    return parseInt(digitMatch[0], 10);
+  }
+  
   // 2. Try Malayalam compound
   const mlNum = parseMalayalamCompoundNumber(phrase);
-  if (mlNum !== null) return mlNum;
+  if (mlNum !== null) {
+    console.log('[universalNumberParser] Found Malayalam number:', mlNum);
+    return mlNum;
+  }
+  
   // 3. Try English word/compound (existing logic)
   for (const [word, value] of Object.entries(englishNumberMap)) {
-    if (phrase.includes(word)) return value;
+    if (phrase.includes(word)) {
+      console.log('[universalNumberParser] Found English word match:', word, value);
+      return value;
+    }
   }
+  
   // 4. Try compound parsing (existing logic)
   let total = 0, current = 0;
   const words = phrase.split(' ');
+  console.log('[universalNumberParser] Words to process:', words);
+  
   for (let i = 0; i < words.length; i++) {
     let w = words[i];
     let val = malayalamNumberMap[w] || englishNumberMap[w];
+    
     if (!val && i + 1 < words.length) {
       const compound = w + ' ' + words[i + 1];
       val = malayalamNumberMap[compound] || englishNumberMap[compound];
-      if (val) i++;
+      if (val) {
+        console.log('[universalNumberParser] Found compound match:', compound, val);
+        i++;
+      }
     }
+    
     if (val) {
+      console.log('[universalNumberParser] Processing word:', w, 'value:', val);
       if ([100, 1000, 10000, 100000, 1000000, 10000000, 100000000].includes(val)) {
         if (current === 0) current = 1;
         current *= val;
@@ -107,6 +186,8 @@ export function universalNumberParser(phrase: string): number | null {
     }
   }
   total += current;
+  
+  console.log('[universalNumberParser] Final result:', total > 0 ? total : null);
   return total > 0 ? total : null;
 }
 
@@ -151,22 +232,38 @@ export class VoiceCommandService {
       if (amount !== null) {
         amountText = amount.toString();
       }
+      
+      // Debug logging
+      console.log('[VoiceCommandService] Processing command:', {
+        original: command,
+        lower: lowerCommand,
+        amount: amount,
+        amountText: amountText,
+        language: language
+      });
+      
       // Remove amount text from command for name extraction
       let commandWithoutAmount = lowerCommand;
       if (amountText) {
         commandWithoutAmount = commandWithoutAmount.replace(amountText, '').replace(/\s{2,}/g, ' ').trim();
       }
+      
       // Pass commandWithoutAmount to handlers for name extraction
       // Income/Expense handlers don't use name, so pass original command
-      if (lowerCommand.includes("income") || lowerCommand.includes("വരുമാനം")) {
+      if (lowerCommand.includes("income") || lowerCommand.includes("വരുമാനം") || lowerCommand.includes("വരുമാന")) {
+        console.log('[VoiceCommandService] Detected income command');
         return await this.handleIncomeCommand(command, amount, lowerCommand, isEnglish, amountText);
-      } else if (lowerCommand.includes("expense") || lowerCommand.includes("ചെലവ്")) {
+      } else if (lowerCommand.includes("expense") || lowerCommand.includes("ചെലവ്") || lowerCommand.includes("ചെലവ") || lowerCommand.includes("ചിലവ്") || lowerCommand.includes("ചിലവ")) {
+        console.log('[VoiceCommandService] Detected expense command');
         return await this.handleExpenseCommand(command, amount, lowerCommand, isEnglish, amountText);
-      } else if (lowerCommand.includes("purchase") || lowerCommand.includes("വാങ്ങൽ")) {
+      } else if (lowerCommand.includes("purchase") || lowerCommand.includes("വാങ്ങൽ") || lowerCommand.includes("വാങ്ങല്") || lowerCommand.includes("വാങ്ങി")) {
+        console.log('[VoiceCommandService] Detected purchase command');
         return await this.handlePurchaseCommand(command, amount, commandWithoutAmount, isEnglish, amountText);
-      } else if (lowerCommand.includes("borrow") || lowerCommand.includes("കടം")) {
+      } else if (lowerCommand.includes("borrow") || lowerCommand.includes("കടം") || lowerCommand.includes("കട") || lowerCommand.includes("കടമെടുത്തു") || lowerCommand.includes("കടംകൊടുത്തു")) {
+        console.log('[VoiceCommandService] Detected borrow command');
         return await this.handleBorrowCommand(command, amount, commandWithoutAmount, isEnglish, amountText);
       } else {
+        console.log('[VoiceCommandService] No specific command detected, showing help');
         return {
           success: true,
           message: isEnglish 
@@ -211,7 +308,11 @@ export class VoiceCommandService {
         message: isEnglish 
           ? `Successfully added income of ₹${amount} in ${category} category.`
           : `₹${amount} വരുമാനം ${category} വിഭാഗത്തിൽ വിജയകരമായി ചേർത്തു.`,
-        summary: isEnglish ? `Income: ₹${amount} (${category})` : `വരുമാനം: ₹${amount} (${category})`
+        summary: isEnglish ? `Income: ₹${amount} (${category})` : `വരുമാനം: ₹${amount} (${category})`,
+        type: 'income',
+        amount,
+        category,
+        description: `Added via voice: ${command}`
       };
     } else {
       amountText = amountText || '';
@@ -251,7 +352,11 @@ export class VoiceCommandService {
         message: isEnglish 
           ? `Successfully added expense of ₹${amount} in ${category} category.`
           : `₹${amount} ചെലവ് ${category} വിഭാഗത്തിൽ വിജയകരമായി ചേർത്തു.`,
-        summary: isEnglish ? `Expense: ₹${amount} (${category})` : `ചെലവ്: ₹${amount} (${category})`
+        summary: isEnglish ? `Expense: ₹${amount} (${category})` : `ചെലവ്: ₹${amount} (${category})`,
+        type: 'expense',
+        amount,
+        category,
+        description: `Added via voice: ${command}`
       };
     } else {
       amountText = amountText || '';

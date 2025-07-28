@@ -42,6 +42,7 @@ function debounce(fn: (...args: any[]) => void, delay: number) {
 
 const VoiceAssistant = ({ onClose, language }: VoiceAssistantProps) => {
   const [isProcessing, setIsProcessing] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
   const [response, setResponse] = useState("");
   const [debugInfo, setDebugInfo] = useState("");
   const [borrowState, setBorrowState] = useState<BorrowConversationState>({
@@ -122,14 +123,49 @@ const VoiceAssistant = ({ onClose, language }: VoiceAssistantProps) => {
     speakMemo(result.summary || result.message);
     // Fire event if data was added
     if (result.success && /successfully|വിജയകരമായി/.test(result.message)) {
+      // If the result contains type, amount, category, and description, dispatch add-transaction
+      if (result.type && result.amount && result.category) {
+        window.dispatchEvent(new CustomEvent('add-transaction', {
+          detail: {
+            type: result.type,
+            amount: result.amount,
+            category: result.category,
+            description: result.description || ''
+          },
+          bubbles: true,
+          cancelable: true,
+          composed: true
+        }));
+      }
       window.dispatchEvent(new CustomEvent('data-updated'));
     }
   };
 
   const handleSpeechError = (error: string) => {
-    setResponse(error);
-    setMicError(error);
-    speakMemo(error);
+    console.error('[VoiceAssistant] Speech recognition error:', error);
+    
+    let errorMessage = '';
+    if (error.includes('no-speech')) {
+      errorMessage = isEnglish 
+        ? 'No speech detected. Please speak clearly and try again.'
+        : 'സംസാരം കണ്ടെത്തിയില്ല. ദയവായി വ്യക്തമായി സംസാരിച്ച് വീണ്ടും ശ്രമിക്കുക.';
+    } else if (error.includes('audio-capture')) {
+      errorMessage = isEnglish 
+        ? 'Microphone access denied. Please allow microphone access and try again.'
+        : 'മൈക്രോഫോൺ ആക്സസ് നിഷേധിച്ചു. ദയവായി മൈക്രോഫോൺ ആക്സസ് അനുവദിച്ച് വീണ്ടും ശ്രമിക്കുക.';
+    } else if (error.includes('network')) {
+      errorMessage = isEnglish 
+        ? 'Network error. Please check your internet connection and try again.'
+        : 'നെറ്റ്‌വർക്ക് പിഴവ്. ദയവായി ഇന്റർനെറ്റ് കണക്ഷൻ പരിശോധിച്ച് വീണ്ടും ശ്രമിക്കുക.';
+    } else {
+      errorMessage = isEnglish 
+        ? `Speech recognition error: ${error}. Please try again.`
+        : `സംസാര തിരിച്ചറിയൽ പിഴവ്: ${error}. ദയവായി വീണ്ടും ശ്രമിക്കുക.`;
+    }
+    
+    setResponse(errorMessage);
+    setMicError(errorMessage);
+    speakMemo(errorMessage);
   };
 
   // Helper to reset borrow conversation
@@ -149,37 +185,100 @@ const VoiceAssistant = ({ onClose, language }: VoiceAssistantProps) => {
       setResponse(isEnglish ? `How much did you borrow from ${transcript}?` : `${transcript} എത്ര രൂപ കടം കൊടുത്തു?`);
       speakMemo(isEnglish ? `How much did you borrow from ${transcript}?` : `${transcript} എത്ര രൂപ കടം കൊടുത്തു?`, autoListen);
     } else if (borrowState.step === 'askAmount') {
-      // Extract number
-      let amount = transcript.match(/\d+/)?.[0] || transcript;
-      // Try to parse Malayalam/English number words
+      // Enhanced number parsing and validation
+      console.log('[VoiceAssistant] Processing amount transcript:', transcript);
+      
+      // Try to parse Malayalam/English number words first
       const parsedAmount = universalNumberParser(transcript);
-      if (parsedAmount !== null) amount = parsedAmount.toString();
+      let amount = '';
+      
+      if (parsedAmount !== null && parsedAmount > 0) {
+        amount = parsedAmount.toString();
+        console.log('[VoiceAssistant] Successfully parsed amount:', amount);
+      } else {
+        // Fallback to regex extraction
+        const digitMatch = transcript.match(/\d+/);
+        if (digitMatch && parseInt(digitMatch[0]) > 0) {
+          amount = digitMatch[0];
+          console.log('[VoiceAssistant] Extracted amount via regex:', amount);
+        } else {
+          console.log('[VoiceAssistant] Failed to parse amount from transcript:', transcript);
+          setResponse(isEnglish 
+            ? `I couldn't understand the amount "${transcript}". Please say a clear number like "1000" or "one thousand".`
+            : `തുക "${transcript}" മനസ്സിലായില്ല. ദയവായി "1000" അല്ലെങ്കിൽ "ആയിരം" പോലെ വ്യക്തമായി പറയുക.`
+          );
+          speakMemo(isEnglish 
+            ? `I couldn't understand the amount. Please say a clear number like "1000" or "one thousand".`
+            : `തുക മനസ്സിലായില്ല. ദയവായി "1000" അല്ലെങ്കിൽ "ആയിരം" പോലെ വ്യക്തമായി പറയുക.`, 
+            autoListen
+          );
+          return;
+        }
+      }
+      
       setBorrowState(s => ({ ...s, amount, step: 'askPaid' }));
       setResponse(isEnglish ? 'How much have you paid back so far?' : '\u0d07\u0d24\u0d41\u0d35\u0d30\u0d46 \u0d0e\u0d24\u0d4d\u0d30 \u0d30\u0d42\u0d2a \u0d24\u0d3f\u0d30\u0d3f\u0d15\u0d46 \u0d28\u0d7d\u0d15\u0d3f?');
       speakMemo(isEnglish ? 'How much have you paid back so far?' : '\u0d07\u0d24\u0d41\u0d35\u0d30\u0d46 \u0d0e\u0d24\u0d4d\u0d30 \u0d30\u0d42\u0d2a \u0d24\u0d3f\u0d30\u0d3f\u0d15\u0d46 \u0d28\u0d7d\u0d15\u0d3f?', autoListen);
     } else if (borrowState.step === 'askPaid') {
-      let paid = transcript.match(/\d+/)?.[0] || transcript;
+      // Enhanced number parsing and validation for paid amount
+      console.log('[VoiceAssistant] Processing paid amount transcript:', transcript);
+      
+      // Try to parse Malayalam/English number words first
       const parsedPaid = universalNumberParser(transcript);
-      if (parsedPaid !== null) paid = parsedPaid.toString();
+      let paid = '0'; // Default to 0 if not specified
+      
+      if (parsedPaid !== null && parsedPaid >= 0) {
+        paid = parsedPaid.toString();
+        console.log('[VoiceAssistant] Successfully parsed paid amount:', paid);
+      } else {
+        // Fallback to regex extraction
+        const digitMatch = transcript.match(/\d+/);
+        if (digitMatch && parseInt(digitMatch[0]) >= 0) {
+          paid = digitMatch[0];
+          console.log('[VoiceAssistant] Extracted paid amount via regex:', paid);
+        } else {
+          // If no valid number found, assume 0
+          paid = '0';
+          console.log('[VoiceAssistant] No valid paid amount found, defaulting to 0');
+        }
+      }
+      
       const newState: BorrowConversationState = { ...borrowState, paid, step: 'confirm' as BorrowConversationStep };
       setBorrowState(newState);
       setBorrowConfirmEdit(newState); // set editable fields
       setResponse(isEnglish
-        ? `You borrowed 9${borrowState.amount} from ${borrowState.name} and have paid back 9${paid}. Should I save this?`
-        : `നിങ്ങൾ ${borrowState.name}ക്ക് ₹${borrowState.amount} കടം കൊടുത്തു, ഇതുവരെ ₹${paid} തിരികെ നൽകി. സേവ് ചെയ്യട്ടേ?`
+        ? `You borrowed ₹${borrowState.amount} from ${borrowState.name} and have paid back ₹${paid}. Should I save this?`
+        : `നിങ്ങൾ ${borrowState.name} എന്നയാളിൽ നിന്ന് ₹${borrowState.amount} കടം എടുത്തു, ഇതുവരെ ₹${paid} തിരികെ നൽകി. ഇത് സേവ് ചെയ്യട്ടേ?`
       );
       speakMemo(isEnglish
-        ? `You borrowed 9${borrowState.amount} from ${borrowState.name} and have paid back 9${paid}. Should I save this?`
-        : `നിങ്ങൾ ${borrowState.name}ക്ക് ₹${borrowState.amount} കടം കൊടുത്തു, ഇതുവരെ ₹${paid} തിരികെ നൽകി. സേവ് ചെയ്യട്ടേ?`, autoListen
+        ? `You borrowed ₹${borrowState.amount} from ${borrowState.name} and have paid back ₹${paid}. Should I save this?`
+        : `നിങ്ങൾ ${borrowState.name} എന്നയാളിൽ നിന്ന് ₹${borrowState.amount} കടം എടുത്തു, ഇതുവരെ ₹${paid} തിരികെ നൽകി. ഇത് സേവ് ചെയ്യട്ടേ?`, autoListen
       );
     } else if (borrowState.step === 'confirm') {
       if (/yes|save|okay|confirm|ശരി|സേവ്|ഉണ്ട്/i.test(transcript)) {
         // Use edited fields if present
         const data = borrowConfirmEdit || borrowState;
+        
+        // Validate data before dispatching
+        if (!data.name || !data.amount || data.amount === '0') {
+          console.log('[VoiceAssistant] Invalid borrow data:', data);
+          setResponse(isEnglish 
+            ? 'Missing required information. Please provide the person\'s name and amount.'
+            : 'ആവശ്യമായ വിവരങ്ങൾ കാണുന്നില്ല. ദയവായി വ്യക്തിയുടെ പേരും തുകയും നൽകുക.'
+          );
+          speakMemo(isEnglish 
+            ? 'Missing required information. Please provide the person\'s name and amount.'
+            : 'ആവശ്യമായ വിവരങ്ങൾ കാണുന്നില്ല. ദയവായി വ്യക്തിയുടെ പേരും തുകയും നൽകുക.', 
+            autoListen
+          );
+          return;
+        }
+        
+        console.log('[VoiceAssistant] Dispatching add-borrow event with data:', data);
         window.dispatchEvent(new CustomEvent('add-borrow', { detail: {
           name: data.name,
           totalGiven: data.amount,
-          amountPaid: data.paid
+          amountPaid: data.paid || '0'
         }}));
         setBorrowState(s => ({ ...s, step: 'done' }));
         setBorrowConfirmEdit(null);
@@ -227,16 +326,64 @@ const VoiceAssistant = ({ onClose, language }: VoiceAssistantProps) => {
       setResponse(isEnglish ? `How much did you purchase from ${transcript}?` : `${transcript}യിൽ നിന്ന് എത്ര രൂപയ്ക്ക് വാങ്ങി?`);
       speakMemo(isEnglish ? `How much did you purchase from ${transcript}?` : `${transcript}യിൽ നിന്ന് എത്ര രൂപയ്ക്ക് വാങ്ങി?`, autoListen);
     } else if (purchaseState.step === 'askAmount') {
-      let amount = transcript.match(/\d+/)?.[0] || transcript;
+      // Enhanced number parsing and validation
+      console.log('[VoiceAssistant] Processing purchase amount transcript:', transcript);
+      
+      // Try to parse Malayalam/English number words first
       const parsedAmount = universalNumberParser(transcript);
-      if (parsedAmount !== null) amount = parsedAmount.toString();
+      let amount = '';
+      
+      if (parsedAmount !== null && parsedAmount > 0) {
+        amount = parsedAmount.toString();
+        console.log('[VoiceAssistant] Successfully parsed purchase amount:', amount);
+      } else {
+        // Fallback to regex extraction
+        const digitMatch = transcript.match(/\d+/);
+        if (digitMatch && parseInt(digitMatch[0]) > 0) {
+          amount = digitMatch[0];
+          console.log('[VoiceAssistant] Extracted purchase amount via regex:', amount);
+        } else {
+          console.log('[VoiceAssistant] Failed to parse purchase amount from transcript:', transcript);
+          setResponse(isEnglish 
+            ? `I couldn't understand the amount "${transcript}". Please say a clear number like "1000" or "one thousand".`
+            : `തുക "${transcript}" മനസ്സിലായില്ല. ദയവായി "1000" അല്ലെങ്കിൽ "ആയിരം" പോലെ വ്യക്തമായി പറയുക.`
+          );
+          speakMemo(isEnglish 
+            ? `I couldn't understand the amount. Please say a clear number like "1000" or "one thousand".`
+            : `തുക മനസ്സിലായില്ല. ദയവായി "1000" അല്ലെങ്കിൽ "ആയിരം" പോലെ വ്യക്തമായി പറയുക.`, 
+            autoListen
+          );
+          return;
+        }
+      }
+      
       setPurchaseState(s => ({ ...s, amount, step: 'askPaid' }));
       setResponse(isEnglish ? 'How much have you paid so far?' : '\u0d07\u0d24\u0d41\u0d35\u0d30\u0d46 \u0d0e\u0d24\u0d4d\u0d30 \u0d30\u0d42\u0d2a \u0d28\u0d7d\u0d15\u0d3f?');
       speakMemo(isEnglish ? 'How much have you paid so far?' : '\u0d07\u0d24\u0d41\u0d35\u0d30\u0d46 \u0d0e\u0d24\u0d4d\u0d30 \u0d30\u0d42\u0d2a \u0d28\u0d7d\u0d15\u0d3f?', autoListen);
     } else if (purchaseState.step === 'askPaid') {
-      let paid = transcript.match(/\d+/)?.[0] || transcript;
+      // Enhanced number parsing and validation for paid amount
+      console.log('[VoiceAssistant] Processing purchase paid amount transcript:', transcript);
+      
+      // Try to parse Malayalam/English number words first
       const parsedPaid = universalNumberParser(transcript);
-      if (parsedPaid !== null) paid = parsedPaid.toString();
+      let paid = '0'; // Default to 0 if not specified
+      
+      if (parsedPaid !== null && parsedPaid >= 0) {
+        paid = parsedPaid.toString();
+        console.log('[VoiceAssistant] Successfully parsed purchase paid amount:', paid);
+      } else {
+        // Fallback to regex extraction
+        const digitMatch = transcript.match(/\d+/);
+        if (digitMatch && parseInt(digitMatch[0]) >= 0) {
+          paid = digitMatch[0];
+          console.log('[VoiceAssistant] Extracted purchase paid amount via regex:', paid);
+        } else {
+          // If no valid number found, assume 0
+          paid = '0';
+          console.log('[VoiceAssistant] No valid purchase paid amount found, defaulting to 0');
+        }
+      }
+      
       const newState: PurchaseConversationState = { ...purchaseState, paid, step: 'confirm' as PurchaseConversationStep };
       setPurchaseState(newState);
       setPurchaseConfirmEdit(newState); // set editable fields
@@ -251,10 +398,27 @@ const VoiceAssistant = ({ onClose, language }: VoiceAssistantProps) => {
     } else if (purchaseState.step === 'confirm') {
       if (/yes|save|okay|confirm|ശരി|സേവ്|ഉണ്ട്/i.test(transcript)) {
         const data = purchaseConfirmEdit || purchaseState;
+        
+        // Validate data before dispatching
+        if (!data.supplier || !data.amount || data.amount === '0') {
+          console.log('[VoiceAssistant] Invalid purchase data:', data);
+          setResponse(isEnglish 
+            ? 'Missing required information. Please provide the supplier name and amount.'
+            : 'ആവശ്യമായ വിവരങ്ങൾ കാണുന്നില്ല. ദയവായി സപ്ലയർ പേരും തുകയും നൽകുക.'
+          );
+          speakMemo(isEnglish 
+            ? 'Missing required information. Please provide the supplier name and amount.'
+            : 'ആവശ്യമായ വിവരങ്ങൾ കാണുന്നില്ല. ദയവായി സപ്ലയർ പേരും തുകയും നൽകുക.', 
+            autoListen
+          );
+          return;
+        }
+        
+        console.log('[VoiceAssistant] Dispatching add-purchase event with data:', data);
         window.dispatchEvent(new CustomEvent('add-purchase', { detail: {
           supplierName: data.supplier,
           totalAmount: data.amount,
-          amountPaid: data.paid
+          amountPaid: data.paid || '0'
         }}));
         setPurchaseState(s => ({ ...s, step: 'done' }));
         setPurchaseConfirmEdit(null);
@@ -449,6 +613,11 @@ const VoiceAssistant = ({ onClose, language }: VoiceAssistantProps) => {
                 {isEnglish ? "Processing..." : "പ്രോസസ്സ് ചെയ്യുന്നു..."}
               </p>
             )}
+            {isSaving && (
+              <p className="text-sm text-blue-600 animate-pulse">
+                {isEnglish ? "Saving..." : "സേവ് ചെയ്യുന്നു..."}
+              </p>
+            )}
           </div>
 
           {/* Error/Warning for mic issues */}
@@ -487,7 +656,16 @@ const VoiceAssistant = ({ onClose, language }: VoiceAssistantProps) => {
                 <div className="flex gap-2 mt-2">
                   <Button 
                     size="sm" 
+                    disabled={
+                      borrowState.step !== 'confirm' ||
+                      !borrowConfirmEdit?.name || 
+                      !borrowConfirmEdit?.amount || 
+                      borrowConfirmEdit?.amount === '0' ||
+                      isProcessing ||
+                      isSaving
+                    }
                     onClick={async () => {
+                      setIsSaving(true);
                       try {
                         const detail = {
                           name: borrowConfirmEdit.name.trim(),
@@ -530,6 +708,7 @@ const VoiceAssistant = ({ onClose, language }: VoiceAssistantProps) => {
                           await waitForSave;
                           
                           // Update UI state on success
+                          console.log('[VoiceAssistant] Borrow save successful, updating state to done');
                           setBorrowState(s => ({ ...s, step: 'done' }));
                           setBorrowConfirmEdit(null);
                           
@@ -551,10 +730,12 @@ const VoiceAssistant = ({ onClose, language }: VoiceAssistantProps) => {
                         
                         setResponse(errorMessage);
                         await speakMemo(errorMessage);
+                      } finally {
+                        setIsSaving(false);
                       }
                     }}
                   >
-                    {isEnglish ? 'Save' : 'സേവ് ചെയ്യുക'}
+                    {isSaving ? (isEnglish ? 'Saving...' : 'സേവ് ചെയ്യുന്നു...') : (isEnglish ? 'Save' : 'സേവ് ചെയ്യുക')}
                   </Button>
                   <Button size="sm" variant="outline" onClick={() => {
                     setBorrowState(s => ({ ...s, step: 'askAmount' }));
@@ -591,9 +772,15 @@ const VoiceAssistant = ({ onClose, language }: VoiceAssistantProps) => {
                 <div className="flex gap-2 mt-2">
                   <Button 
                     size="sm" 
-                    disabled={(!purchaseConfirmEdit.supplier || /unknown|blank|supplier|person|അജ്ഞാത/i.test(purchaseConfirmEdit.supplier)) || 
-                             (!purchaseConfirmEdit.amount || isNaN(Number(purchaseConfirmEdit.amount)))} 
+                    disabled={
+                      purchaseState.step !== 'confirm' ||
+                      (!purchaseConfirmEdit?.supplier || /unknown|blank|supplier|person|അജ്ഞാത/i.test(purchaseConfirmEdit?.supplier)) || 
+                      (!purchaseConfirmEdit?.amount || isNaN(Number(purchaseConfirmEdit?.amount))) ||
+                      isProcessing ||
+                      isSaving
+                    } 
                     onClick={async () => {
+                      setIsSaving(true);
                       try {
                         const detail = {
                           supplierName: purchaseConfirmEdit.supplier.trim(),
@@ -636,6 +823,7 @@ const VoiceAssistant = ({ onClose, language }: VoiceAssistantProps) => {
                           await waitForSave;
                           
                           // Update UI state on success
+                          console.log('[VoiceAssistant] Purchase save successful, updating state to done');
                           setPurchaseState(s => ({ ...s, step: 'done' }));
                           setPurchaseConfirmEdit(null);
                           
@@ -657,10 +845,12 @@ const VoiceAssistant = ({ onClose, language }: VoiceAssistantProps) => {
                         
                         setResponse(errorMessage);
                         await speakMemo(errorMessage);
+                      } finally {
+                        setIsSaving(false);
                       }
                     }}
                   >
-                    {isEnglish ? 'Save' : 'സേവ് ചെയ്യുക'}
+                    {isSaving ? (isEnglish ? 'Saving...' : 'സേവ് ചെയ്യുന്നു...') : (isEnglish ? 'Save' : 'സേവ് ചെയ്യുക')}
                   </Button>
                   <Button size="sm" variant="outline" onClick={() => {
                     setPurchaseState(s => ({ ...s, step: 'askAmount' }));
@@ -680,7 +870,14 @@ const VoiceAssistant = ({ onClose, language }: VoiceAssistantProps) => {
                   </p>
                   <p className="text-sm">{response}</p>
                   {debugInfo && (
-                    <p className="text-xs text-muted-foreground mt-1">Debug: {debugInfo}</p>
+                    <div className="text-xs text-muted-foreground mt-1">
+                      <p>Debug: {debugInfo}</p>
+                      <div className="mt-1 p-2 bg-gray-50 rounded text-xs">
+                        <p><strong>Current State:</strong></p>
+                        <p>Borrow: {borrowState.step} - {borrowState.name} - ₹{borrowState.amount} - ₹{borrowState.paid}</p>
+                        <p>Purchase: {purchaseState.step} - {purchaseState.supplier} - ₹{purchaseState.amount} - ₹{purchaseState.paid}</p>
+                      </div>
+                    </div>
                   )}
                   {debugInfo && debugInfo.includes('[NAME BLANK OR UNKNOWN]') && (
                     <p className="text-xs text-red-600 mt-1">

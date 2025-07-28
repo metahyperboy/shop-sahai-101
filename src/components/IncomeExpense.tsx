@@ -84,8 +84,25 @@ const IncomeExpense = ({ language }: IncomeExpenseProps) => {
       console.log('[IncomeExpense] Data updated event received, transactions refreshed.');
     };
     window.addEventListener('data-updated', handleDataUpdated);
+    // Add handler for add-transaction event (from voice assistant)
+    const handleAddTransaction = (e) => {
+      const { type, amount, category, description } = e.detail || {};
+      if (type && amount && category) {
+        console.log('[IncomeExpense] Received add-transaction event:', { type, amount, category, description });
+        addTransaction({
+          type,
+          amount: amount.toString(),
+          category,
+          description: description || ''
+        });
+      } else {
+        console.log('[IncomeExpense] Missing required fields in add-transaction event:', { type, amount, category });
+      }
+    };
+    window.addEventListener('add-transaction', handleAddTransaction);
     return () => {
       window.removeEventListener('data-updated', handleDataUpdated);
+      window.removeEventListener('add-transaction', handleAddTransaction);
     };
   }, [filter]);
   const [newTransaction, setNewTransaction] = useState({
@@ -106,17 +123,26 @@ const IncomeExpense = ({ language }: IncomeExpenseProps) => {
       : ["യാത്ര", "ഭക്ഷണം", "യൂട്ടിലിറ്റി", "സാധനങ്ങൾ", "മറ്റുള്ളവ"]
   };
 
-  const addTransaction = async () => {
-    if (newTransaction.amount && newTransaction.category && !isSubmitting) {
+  const addTransaction = async (transactionData?: {
+    type: string;
+    amount: string;
+    category: string;
+    description: string;
+  }) => {
+    const dataToUse = transactionData || newTransaction;
+    
+    if (dataToUse.amount && dataToUse.category && !isSubmitting) {
       setIsSubmitting(true);
       try {
+        console.log('[IncomeExpense] Adding transaction with data:', dataToUse);
+        
         const { data, error } = await supabase
           .from('transactions')
           .insert({
-            type: newTransaction.type,
-            amount: parseFloat(newTransaction.amount),
-            category: newTransaction.category,
-            description: newTransaction.description || null,
+            type: dataToUse.type,
+            amount: parseFloat(dataToUse.amount),
+            category: dataToUse.category,
+            description: dataToUse.description || null,
             user_id: (await supabase.auth.getUser()).data.user?.id || ''
           })
           .select()
@@ -143,6 +169,12 @@ const IncomeExpense = ({ language }: IncomeExpenseProps) => {
       } finally {
         setIsSubmitting(false);
       }
+    } else {
+      console.log('[IncomeExpense] Cannot add transaction - missing data:', {
+        amount: dataToUse.amount,
+        category: dataToUse.category,
+        isSubmitting
+      });
     }
   };
 
@@ -342,7 +374,7 @@ const IncomeExpense = ({ language }: IncomeExpenseProps) => {
             />
           </div>
 
-          <Button onClick={addTransaction} disabled={isSubmitting} className="w-full">
+                      <Button onClick={() => addTransaction()} disabled={isSubmitting} className="w-full">
             <Plus className="h-4 w-4 mr-2" />
             {isSubmitting ? "Adding..." : (isEnglish ? "Add Transaction" : "ഇടപാട് ചേർക്കുക")}
           </Button>
