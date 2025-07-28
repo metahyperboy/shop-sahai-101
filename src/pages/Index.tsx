@@ -10,6 +10,22 @@ import IncomeExpense from "@/components/IncomeExpense";
 import UserSettings from "@/components/UserSettings";
 import VoiceAssistant from "@/components/VoiceAssistant";
 
+/**
+ * Main dashboard component for the Shop Sahai Ledger application.
+ * Handles the main user interface including navigation between different sections:
+ * - Dashboard overview
+ * - Item purchases
+ * - Borrow management
+ * - Income/expense tracking
+ * - User settings
+ * - Voice assistant
+ * 
+ * @component
+ * @example
+ * return (
+ *   <Index />
+ * )
+ */
 const Index = () => {
   const [activeTab, setActiveTab] = useState("dashboard");
   const [showSettings, setShowSettings] = useState(false);

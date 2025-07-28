@@ -534,64 +534,76 @@ const ItemPurchase = ({ language, filter = 'monthly' }: ItemPurchaseProps) => {
               {isEnglish ? "Add New Purchase" : "പുതിയ വാങ്ങൽ ചേർക്കുക"}
             </CardTitle>
           </CardHeader>
-          <CardContent className="space-y-6">
-            <div className="space-y-2">
-              <Label htmlFor="supplier-name" className="text-sm font-medium">
-                {isEnglish ? "Supplier Name" : "വിതരണക്കാരന്റെ പേര്"}
-              </Label>
-              <Input
-                id="supplier-name"
-                value={newItem.supplierName}
-                onChange={(e) => setNewItem({ ...newItem, supplierName: e.target.value })}
-                placeholder={isEnglish ? "Enter supplier name" : "വിതരണക്കാരന്റെ പേര് നൽകുക"}
-                className="h-11"
-              />
-            </div>
-
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          <CardContent>
+            <form onSubmit={(e) => {
+              e.preventDefault();
+              addItem();
+            }} className="space-y-6">
               <div className="space-y-2">
-                <Label htmlFor="total-amount" className="text-sm font-medium">
-                  {isEnglish ? "Total Amount" : "മൊത്തം തുക"}
+                <Label htmlFor="supplier-name" className="text-sm font-medium">
+                  {isEnglish ? "Supplier Name" : "വിതരണക്കാരന്റെ പേര്"}
                 </Label>
                 <Input
-                  id="total-amount"
-                  type="text"
-                  value={newItem.totalAmount}
-                  onChange={e => {
-                    let val = e.target.value;
-                    const parsed = universalNumberParser(val);
-                    if (parsed !== null) val = parsed.toString();
-                    setNewItem({ ...newItem, totalAmount: val });
-                  }}
-                  placeholder="₹0"
+                  id="supplier-name"
+                  value={newItem.supplierName}
+                  onChange={(e) => setNewItem({ ...newItem, supplierName: e.target.value })}
+                  placeholder={isEnglish ? "Enter supplier name" : "വിതരണക്കാരന്റെ പേര് നൽകുക"}
                   className="h-11"
+                  required
                 />
               </div>
-              
-              <div className="space-y-2">
-                <Label htmlFor="amount-given" className="text-sm font-medium">
-                  {isEnglish ? "Amount Given" : "നൽകിയ തുക"}
-                </Label>
-                <Input
-                  id="amount-given"
-                  type="text"
-                  value={newItem.amountPaid}
-                  onChange={e => {
-                    let val = e.target.value;
-                    const parsed = universalNumberParser(val);
-                    if (parsed !== null) val = parsed.toString();
-                    setNewItem({ ...newItem, amountPaid: val });
-                  }}
-                  placeholder="₹0"
-                  className="h-11"
-                />
-              </div>
-            </div>
 
-            <Button onClick={() => addItem()} disabled={isSubmitting} className="w-full h-11 text-base">
-              <Plus className="h-5 w-5 mr-2" />
-              {isSubmitting ? "Adding..." : (isEnglish ? "Add Purchase" : "വാങ്ങൽ ചേർക്കുക")}
-            </Button>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div className="space-y-2">
+                  <Label htmlFor="total-amount" className="text-sm font-medium">
+                    {isEnglish ? "Total Amount" : "മൊത്തം തുക"}
+                  </Label>
+                  <Input
+                    id="total-amount"
+                    type="text"
+                    value={newItem.totalAmount}
+                    onChange={e => {
+                      let val = e.target.value;
+                      const parsed = universalNumberParser(val);
+                      if (parsed !== null) val = parsed.toString();
+                      setNewItem({ ...newItem, totalAmount: val });
+                    }}
+                    placeholder="₹0"
+                    className="h-11"
+                    required
+                  />
+                </div>
+                
+                <div className="space-y-2">
+                  <Label htmlFor="amount-given" className="text-sm font-medium">
+                    {isEnglish ? "Amount Given" : "നൽകിയ തുക"}
+                  </Label>
+                  <Input
+                    id="amount-given"
+                    type="text"
+                    value={newItem.amountPaid}
+                    onChange={e => {
+                      let val = e.target.value;
+                      const parsed = universalNumberParser(val);
+                      if (parsed !== null) val = parsed.toString();
+                      setNewItem({ ...newItem, amountPaid: val });
+                    }}
+                    placeholder="₹0"
+                    className="h-11"
+                    required
+                  />
+                </div>
+              </div>
+
+              <Button 
+                type="submit" 
+                disabled={isSubmitting} 
+                className="w-full h-11 text-base"
+              >
+                <Plus className="h-5 w-5 mr-2" />
+                {isSubmitting ? "Adding..." : (isEnglish ? "Add Purchase" : "വാങ്ങൽ ചേർക്കുക")}
+              </Button>
+            </form>
           </CardContent>
         </Card>
       </div>

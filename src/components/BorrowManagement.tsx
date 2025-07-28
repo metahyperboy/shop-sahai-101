@@ -14,6 +14,34 @@ interface BorrowManagementProps {
   filter?: string;
 }
 
+// Define the shape of the borrow data
+interface BorrowData {
+  name: string;
+  totalGiven: string | number;
+  amountPaid?: string | number;
+}
+
+// Define the shape of the borrow result
+interface BorrowResult {
+  success: boolean;
+  error?: string;
+  data?: {
+    id: string;
+    name: string;
+    amount: number;
+    paid: number;
+    balance: number;
+  };
+}
+
+// Extend the Window interface to include our custom events
+declare global {
+  interface WindowEventMap {
+    'add-borrow': CustomEvent<BorrowData>;
+    'add-borrow-result': CustomEvent<BorrowResult>;
+  }
+}
+
 interface BorrowItem {
   id: string;
   borrower_name: string;
@@ -202,17 +230,55 @@ const activeFilter = typeof filter === 'string' ? (filter as 'daily' | 'weekly' 
     }
   };
 
+  // Handle add-borrow events from VoiceAssistant
   useEffect(() => {
-    const handleAddBorrow = async (e: any) => {
-      const { name, totalGiven, amountPaid } = e.detail || {};
-      console.log('[VoiceAssistant] Received add-borrow event:', { name, totalGiven, amountPaid });
-      if (name && totalGiven) {
-        addItem(name, totalGiven, amountPaid || '');
+    const handleAddBorrow = async (e: CustomEvent) => {
+      try {
+        const { name, totalGiven, amountPaid = '' } = e.detail || {};
+        
+        console.log('[BorrowManagement] Received add-borrow event:', { 
+          name, 
+          totalGiven, 
+          amountPaid 
+        });
+        
+        if (!name || !totalGiven) {
+          console.error('[BorrowManagement] Missing required fields in add-borrow event');
+          window.dispatchEvent(new CustomEvent('add-borrow-result', { 
+            detail: { 
+              success: false, 
+              error: 'Missing required fields (name and amount are required)' 
+            } 
+          }));
+          return;
+        }
+        
+        // Process the borrow record
+        await addItem(name, totalGiven, amountPaid);
+        
+        console.log('[BorrowManagement] Successfully processed add-borrow event');
+        
+      } catch (error: any) {
+        console.error('[BorrowManagement] Error handling add-borrow event:', error);
+        
+        // Make sure to notify about the error
+        window.dispatchEvent(new CustomEvent('add-borrow-result', { 
+          detail: { 
+            success: false, 
+            error: error.message || 'Failed to process borrow record' 
+          } 
+        }));
       }
     };
-    window.addEventListener('add-borrow', handleAddBorrow);
-    return () => window.removeEventListener('add-borrow', handleAddBorrow);
-  }, []);
+    
+    // Add the event listener
+    window.addEventListener('add-borrow', handleAddBorrow as EventListener);
+    
+    // Clean up the event listener
+    return () => {
+      window.removeEventListener('add-borrow', handleAddBorrow as EventListener);
+    };
+  }, [addItem]); // Include addItem in the dependency array
 
   const isEnglish = language === "english";
 

@@ -485,18 +485,77 @@ const VoiceAssistant = ({ onClose, language }: VoiceAssistantProps) => {
                 </div>
                 {debugInfo && <div className="text-xs text-muted-foreground mt-1">Debug: {debugInfo}</div>}
                 <div className="flex gap-2 mt-2">
-                  <Button size="sm" onClick={() => {
-                    // Save with edited fields
-                    window.dispatchEvent(new CustomEvent('add-borrow', { detail: {
-                      name: borrowConfirmEdit.name,
-                      totalGiven: borrowConfirmEdit.amount,
-                      amountPaid: borrowConfirmEdit.paid
-                    }}));
-                    setBorrowState(s => ({ ...s, step: 'done' }));
-                    setBorrowConfirmEdit(null);
-                    setResponse(isEnglish ? 'Record added successfully!' : 'റെക്കോർഡ് വിജയകരമായി ചേർത്തു!');
-                    speakMemo(isEnglish ? 'Record added successfully!' : 'റെക്കോർഡ് വിജയകരമായി ചേർത്തു!');
-                  }}>{isEnglish ? 'Save' : 'സേവ് ചെയ്യുക'}</Button>
+                  <Button 
+                    size="sm" 
+                    onClick={async () => {
+                      try {
+                        const detail = {
+                          name: borrowConfirmEdit.name.trim(),
+                          totalGiven: borrowConfirmEdit.amount,
+                          amountPaid: borrowConfirmEdit.paid || '0'
+                        };
+                        
+                        console.log('Dispatching add-borrow event with:', detail);
+                        
+                        // Create a promise that resolves when the borrow is saved
+                        const waitForSave = new Promise((resolve, reject) => {
+                          const handleSaveResult = (e: any) => {
+                            window.removeEventListener('add-borrow-result', handleSaveResult);
+                            if (e.detail.success) {
+                              resolve(true);
+                            } else {
+                              reject(new Error(e.detail.error || 'Failed to save borrow record'));
+                            }
+                          };
+                          
+                          window.addEventListener('add-borrow-result', handleSaveResult);
+                          
+                          // Create and dispatch the event
+                          const event = new CustomEvent('add-borrow', { 
+                            detail: detail,
+                            bubbles: true,
+                            cancelable: true,
+                            composed: true
+                          });
+                          
+                          // Dispatch the event and check if it was cancelled
+                          const eventDispatched = window.dispatchEvent(event);
+                          if (!eventDispatched) {
+                            window.removeEventListener('add-borrow-result', handleSaveResult);
+                            reject(new Error('Event was cancelled'));
+                          }
+                        });
+                        
+                        try {
+                          await waitForSave;
+                          
+                          // Update UI state on success
+                          setBorrowState(s => ({ ...s, step: 'done' }));
+                          setBorrowConfirmEdit(null);
+                          
+                          const successMessage = isEnglish 
+                            ? 'Borrow record added successfully!' 
+                            : 'കടം രേഖ വിജയകരമായി ചേർത്തു!';
+                          
+                          setResponse(successMessage);
+                          await speakMemo(successMessage);
+                        } catch (error) {
+                          throw error; // This will be caught by the outer try-catch
+                        }
+                        
+                      } catch (error) {
+                        console.error('Error in save borrow:', error);
+                        const errorMessage = isEnglish 
+                          ? 'Failed to save borrow record. Please try again.' 
+                          : 'കടം രേഖ സേവ് ചെയ്യുന്നതിൽ പിഴവ് സംഭവിച്ചു. ദയവായി വീണ്ടും ശ്രമിക്കുക.';
+                        
+                        setResponse(errorMessage);
+                        await speakMemo(errorMessage);
+                      }
+                    }}
+                  >
+                    {isEnglish ? 'Save' : 'സേവ് ചെയ്യുക'}
+                  </Button>
                   <Button size="sm" variant="outline" onClick={() => {
                     setBorrowState(s => ({ ...s, step: 'askAmount' }));
                     setBorrowConfirmEdit(null);
@@ -530,17 +589,79 @@ const VoiceAssistant = ({ onClose, language }: VoiceAssistantProps) => {
                 )}
                 {debugInfo && <div className="text-xs text-muted-foreground mt-1">Debug: {debugInfo}</div>}
                 <div className="flex gap-2 mt-2">
-                  <Button size="sm" disabled={(!purchaseConfirmEdit.supplier || /unknown|blank|supplier|person|അജ്ഞാത/i.test(purchaseConfirmEdit.supplier)) || (!purchaseConfirmEdit.amount || isNaN(Number(purchaseConfirmEdit.amount)))} onClick={() => {
-                    window.dispatchEvent(new CustomEvent('add-purchase', { detail: {
-                      supplierName: purchaseConfirmEdit.supplier,
-                      totalAmount: purchaseConfirmEdit.amount,
-                      amountPaid: purchaseConfirmEdit.paid
-                    }}));
-                    setPurchaseState(s => ({ ...s, step: 'done' }));
-                    setPurchaseConfirmEdit(null);
-                    setResponse(isEnglish ? 'Purchase record added successfully!' : 'വാങ്ങൽ രേഖ വിജയകരമായി ചേർത്തു!');
-                    speakMemo(isEnglish ? 'Purchase record added successfully!' : 'വാങ്ങൽ രേഖ വിജയകരമായി ചേർത്തു!');
-                  }}>{isEnglish ? 'Save' : 'സേവ് ചെയ്യുക'}</Button>
+                  <Button 
+                    size="sm" 
+                    disabled={(!purchaseConfirmEdit.supplier || /unknown|blank|supplier|person|അജ്ഞാത/i.test(purchaseConfirmEdit.supplier)) || 
+                             (!purchaseConfirmEdit.amount || isNaN(Number(purchaseConfirmEdit.amount)))} 
+                    onClick={async () => {
+                      try {
+                        const detail = {
+                          supplierName: purchaseConfirmEdit.supplier.trim(),
+                          totalAmount: purchaseConfirmEdit.amount,
+                          amountPaid: purchaseConfirmEdit.paid || '0'
+                        };
+                        
+                        console.log('Dispatching add-purchase event with:', detail);
+                        
+                        // Create a promise that resolves when the purchase is saved
+                        const waitForSave = new Promise((resolve, reject) => {
+                          const handleSaveResult = (e: any) => {
+                            window.removeEventListener('add-purchase-result', handleSaveResult);
+                            if (e.detail.success) {
+                              resolve(true);
+                            } else {
+                              reject(new Error(e.detail.error || 'Failed to save purchase record'));
+                            }
+                          };
+                          
+                          window.addEventListener('add-purchase-result', handleSaveResult);
+                          
+                          // Create and dispatch the event
+                          const event = new CustomEvent('add-purchase', { 
+                            detail: detail,
+                            bubbles: true,
+                            cancelable: true,
+                            composed: true
+                          });
+                          
+                          // Dispatch the event and check if it was cancelled
+                          const eventDispatched = window.dispatchEvent(event);
+                          if (!eventDispatched) {
+                            window.removeEventListener('add-purchase-result', handleSaveResult);
+                            reject(new Error('Event was cancelled'));
+                          }
+                        });
+                        
+                        try {
+                          await waitForSave;
+                          
+                          // Update UI state on success
+                          setPurchaseState(s => ({ ...s, step: 'done' }));
+                          setPurchaseConfirmEdit(null);
+                          
+                          const successMessage = isEnglish 
+                            ? 'Purchase record added successfully!' 
+                            : 'വാങ്ങൽ രേഖ വിജയകരമായി ചേർത്തു!';
+                          
+                          setResponse(successMessage);
+                          await speakMemo(successMessage);
+                        } catch (error) {
+                          throw error; // This will be caught by the outer try-catch
+                        }
+                        
+                      } catch (error) {
+                        console.error('Error in save purchase:', error);
+                        const errorMessage = isEnglish 
+                          ? 'Failed to save purchase. Please try again.' 
+                          : 'വാങ്ങൽ സേവ് ചെയ്യുന്നതിൽ പിഴവ് സംഭവിച്ചു. ദയവായി വീണ്ടും ശ്രമിക്കുക.';
+                        
+                        setResponse(errorMessage);
+                        await speakMemo(errorMessage);
+                      }
+                    }}
+                  >
+                    {isEnglish ? 'Save' : 'സേവ് ചെയ്യുക'}
+                  </Button>
                   <Button size="sm" variant="outline" onClick={() => {
                     setPurchaseState(s => ({ ...s, step: 'askAmount' }));
                     setPurchaseConfirmEdit(null);
