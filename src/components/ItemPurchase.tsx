@@ -13,6 +13,31 @@ interface ItemPurchaseProps {
   filter?: string;
 }
 
+interface PurchaseData {
+  supplierName: string;
+  totalAmount: string | number;
+  amountPaid?: string | number;
+}
+
+interface PurchaseResult {
+  success: boolean;
+  error?: string;
+  data?: {
+    id: string;
+    supplierName: string;
+    amount: number;
+    paid: number;
+    balance: number;
+  };
+}
+
+declare global {
+  interface WindowEventMap {
+    'add-purchase': CustomEvent<PurchaseData>;
+    'add-purchase-result': CustomEvent<PurchaseResult>;
+  }
+}
+
 interface PurchaseItem {
   id: string;
   supplier_name: string;
@@ -114,16 +139,7 @@ const ItemPurchase = ({ language, filter = 'monthly' }: ItemPurchaseProps) => {
     };
   }, [activeFilter]);
 
-  useEffect(() => {
-    const handleAddPurchase = async (e: any) => {
-      const { supplierName, totalAmount, amountPaid } = e.detail || {};
-      if (supplierName && totalAmount) {
-        addItem(supplierName, totalAmount, amountPaid || '');
-      }
-    };
-    window.addEventListener('add-purchase', handleAddPurchase);
-    return () => window.removeEventListener('add-purchase', handleAddPurchase);
-  }, []);
+
 
   const addItem = async (
     supplierNameParam?: string,
@@ -178,6 +194,7 @@ const ItemPurchase = ({ language, filter = 'monthly' }: ItemPurchaseProps) => {
         setNewItem({ supplierName: "", totalAmount: "", amountPaid: "" });
         await fetchPurchases();
         window.dispatchEvent(new CustomEvent('data-updated'));
+        window.dispatchEvent(new CustomEvent('add-purchase-result', { detail: { success: true } }));
         console.log('[ItemPurchase] data-updated event fired after DB write.');
       } catch (error: any) {
         console.error('[ItemPurchase] Error adding purchase:', error);
@@ -186,11 +203,62 @@ const ItemPurchase = ({ language, filter = 'monthly' }: ItemPurchaseProps) => {
           description: error.message || "Failed to add purchase",
           variant: "destructive",
         });
+        window.dispatchEvent(new CustomEvent('add-purchase-result', { detail: { success: false, error: error.message } }));
       } finally {
         setIsSubmitting(false);
       }
     }
   };
+
+  // Handle add-purchase events from VoiceAssistant
+  useEffect(() => {
+    const handleAddPurchase = async (e: CustomEvent) => {
+      try {
+        const { supplierName, totalAmount, amountPaid = '' } = e.detail || {};
+        
+        console.log('[ItemPurchase] Received add-purchase event:', { 
+          supplierName, 
+          totalAmount, 
+          amountPaid 
+        });
+        
+        if (!supplierName || !totalAmount) {
+          console.error('[ItemPurchase] Missing required fields in add-purchase event');
+          window.dispatchEvent(new CustomEvent('add-purchase-result', { 
+            detail: { 
+              success: false, 
+              error: 'Missing required fields (supplier name and amount are required)' 
+            } 
+          }));
+          return;
+        }
+        
+        // Process the purchase record
+        await addItem(supplierName, totalAmount, amountPaid);
+        
+        console.log('[ItemPurchase] Successfully processed add-purchase event');
+        
+      } catch (error: any) {
+        console.error('[ItemPurchase] Error handling add-purchase event:', error);
+        
+        // Make sure to notify about the error
+        window.dispatchEvent(new CustomEvent('add-purchase-result', { 
+          detail: { 
+            success: false, 
+            error: error.message || 'Failed to process purchase record' 
+          } 
+        }));
+      }
+    };
+    
+    // Add the event listener
+    window.addEventListener('add-purchase', handleAddPurchase as EventListener);
+    
+    // Clean up the event listener
+    return () => {
+      window.removeEventListener('add-purchase', handleAddPurchase as EventListener);
+    };
+  }, [addItem]); // Include addItem in the dependency array
 
   const deleteItem = async (id: string) => {
     try {

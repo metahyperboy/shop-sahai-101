@@ -556,6 +556,25 @@ const VoiceAssistant = ({ onClose, language }: VoiceAssistantProps) => {
     return () => window.removeEventListener('add-borrow-result', handleAddBorrowResult);
   }, [isEnglish, borrowState.step, speakMemo]);
 
+  // Listen for add-purchase-result to give accurate feedback
+  useEffect(() => {
+    if (purchaseState.step === 'done') return; // Already handled
+    const handleAddPurchaseResult = (e: any) => {
+      if (purchaseState.step === 'done') return; // Already handled
+      if (e.detail?.success) {
+        setResponse(isEnglish ? 'Purchase record added successfully!' : '\u0d35\u0d3f\u0d28\u0d3e\u0d17\u0d4d\u0d17\u0d4d \u0d31\u0d46\u0d15\u0d4d\u0d15\u0d4b\u0d7c\u0d21\u0d4d \u0d35\u0d3f\u0d1a\u0d2f\u0d15\u0d30\u0d2e\u0d3e\u0d2f\u0d3f \u0d1a\u0d47\u0d7c\u0d24\u0d4d\u0d24\u0d41!');
+        speakMemo(isEnglish ? 'Purchase record added successfully!' : '\u0d35\u0d3f\u0d28\u0d3e\u0d17\u0d4d\u0d17\u0d4d \u0d31\u0d46\u0d15\u0d4d\u0d15\u0d4b\u0d7c\u0d21\u0d4d \u0d35\u0d3f\u0d1a\u0d2f\u0d15\u0d30\u0d2e\u0d3e\u0d2f\u0d3f \u0d1a\u0d47\u0d7c\u0d24\u0d4d\u0d24\u0d41!');
+        setPurchaseState(s => ({ ...s, step: 'done' }));
+        setPurchaseConfirmEdit(null);
+      } else {
+        setResponse(isEnglish ? `Error: ${e.detail?.error || 'Failed to add purchase record.'}` : `\u0d24\u0d3f\u0d30\u0d3f\u0d1a\u0d4d\u0d1a\u0d4d: ${e.detail?.error || '\u0d35\u0d3f\u0d28\u0d3e\u0d17\u0d4d\u0d17\u0d4d \u0d31\u0d46\u0d15\u0d4d\u0d15\u0d4b\u0d7c\u0d21\u0d4d \u0d1a\u0d47\u0d7c\u0d24\u0d3a\u0d7b'} `);
+        speakMemo(isEnglish ? `Error: ${e.detail?.error || 'Failed to add purchase record.'}` : `\u0d24\u0d3f\u0d30\u0d3f\u0d1a\u0d4d\u0d1a\u0d4d: ${e.detail?.error || '\u0d35\u0d3f\u0d28\u0d3e\u0d17\u0d4d\u0d17\u0d4d \u0d31\u0d46\u0d15\u0d4d\u0d15\u0d4b\u0d7c\u0d21\u0d4d \u0d1a\u0d47\u0d7c\u0d24\u0d3a\u0d7b'}`);
+      }
+    };
+    window.addEventListener('add-purchase-result', handleAddPurchaseResult);
+    return () => window.removeEventListener('add-purchase-result', handleAddPurchaseResult);
+  }, [isEnglish, purchaseState.step, speakMemo]);
+
   return (
     <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50">
       <Card className="w-full max-w-md">
